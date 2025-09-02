@@ -49,3 +49,12 @@ a {
     height: auto;
     border-radius: 8px;
 }
+
+img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 50vw;
+    height: auto;
+    border-radius: 8px;
+}
