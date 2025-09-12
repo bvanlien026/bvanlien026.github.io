@@ -3,48 +3,652 @@
 <html>
 <head>
     <title>Benji Van Lienden - CS 180 Project 0</title>
+    <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}});
+    </script>
+    <script type="text/javascript"
+    src="http://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
 </head>
 <body>
-    <h1>Project 0: Becoming Friends with Your Camera</h1>
+    <h1>Project 1: Images of the Russian Empire</h1>
     <div class="part-box">
-        <h2>Part 1: Selfie: The Wrong Way vs. The Right Way</h2>
+        <h2>About This Project</h2>
+        <p>
+            In the early 20th century, Sergei Mikhailovich Prokudin-Gorsksii took thousands of photos across the Russian
+            Empire through red, green, and blue filters. The goal of this project is to align some of
+            these filtered images to create colored pictures.
+        </p>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Automatic Contrasting</h2>
+        <p>
+            Before aligning the images, I wanted to do some preprocessing. The first thing
+            I decided to do was contrast each image, mostly to make the images easier to work with.
+            To do this, I rescaled the intensities of each color channel so that the darkest pixel
+            would be 0 and the brightest pixel would be 1.
+        </p>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Automatic Cropping</h2>
+        <p>
+            Next, I wanted to crop the all black or all white borders off of the edges of each
+            image. To do this automatically, I just iteratively looked at each row or column at
+            the edge of an image and checked if it was more than about 80% (almost) black or
+            (almost) white. If it was, I cropped that row or column off of all three color channels.
+        </p>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Alignment with the $\ell_2$-norm</h2>
+        <p>
+            The first metric we might consider when we want to align two images is the Euclidean distance,
+            or $\ell_2$-norm, between the two images. If the two images are $I^{(1)}$ and $I^{(2)}$,
+            then the $\ell_2$-norm between them is given by
+            $$
+            \ell_2(I^{(1)}, I^{(2)}) = \sqrt{\sum_{i,j} \left(I^{(1)}_{ij} - I^{(2)}_{ij}\right)^2},
+            $$
+            where a lower score indicates that the images are more aligned.
+        </p>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Alignment with Normalized Cross-Correlation</h2>
+        <p>
+            The second metric we might consider when aligning two images is Normalized Cross-Correlation (NCC).
+            Again, with the two images being $I^{(1)}$ and $I^{(2)}$, the NCC is given by
+            $$
+            \frac{I^{(1)}}{||I^{(1)}||_2} \cdot \frac{I^{(2)}}{||I^{(1)}||_2},
+            $$
+            where $||I^{(i)}||_2$ is the $\ell_2$ norm of $I^{(i)}$.
+            Here, a higher score indicates that the images are more aligned.
+        </p>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Single-Scale Alignment</h2>
+        <p>
+            To align the images, we search over a window of possible displacements
+            between the two images and use one of our metrics to compute a score for each
+            displacement. The displacement that produces the best score is the one we choose.
+            To implement the displacements, I cropped from one edge and padded the
+            other edge an equal amount to ensure the images stayed the same shape.
+        </p>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Single-Scale Alignment Results</h2>
+        <p>
+            To produce the following images, I first cropped the sides and
+            contrasted all three color channels. Then I used
+            NCC to align the images with a displacement of
+            15 pixels. I did a final crop before saving each image.
+            <br>
+            <br>
+            I had a particularly difficult time getting cathedral.jpg to align.
+            The best I could get it, below, I could only get by removing the contrasting and cropping
+            and just aligning the raw image using the $\ell_2$-norm.
+        </p>
         <div class="image-row">
             <div class="image-item">
-                <img src="./media/cs180_0_1_1.jpg">
-                <p>0.5x</p>
+                <img src="./media/cathedral_ncc.jpg">
+                <p>
+                    cathedral.jpg
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -1, y = 10
+                        <br>
+                        Green Displacement: x = 0, y = 3
+                    </span>
+                </p>
             </div>
             <div class="image-item">
-                <img src="./media/cs180_0_1_2.jpg">
-                <p>1x</p>
+                <img src="./media/monastery_ncc.jpg">
+                <p>
+                    monastery.jpg
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 3, y = 6
+                        <br>
+                        Green Displacement: x = 2, y = 3
+                    </span>
+                </p>
             </div>
             <div class="image-item">
-                <img src="./media/cs180_0_1_3.jpg">
-                <p>3x</p>
+                <img src="./media/tobolsk_ncc.jpg">
+                <p>
+                    tobolsk.jpg
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -10, y = 32
+                        <br>
+                        Green Displacement: x = -8, y = 0
+                    </span>
+                </p>
             </div>
         </div>
     </div>
     &nbsp;
     <div class="part-box">
-        <h2>Part 2: Architectural Perspective Compression</h2>
+        <h2>Multi-Scale Pyramid Alignment</h2>
+        <p>
+            For larger images, searching over a large displacement window would take too long.
+            So instead, we reduce the image's resolution by some factor multiple times. First we run
+            our alignment algorithm on the lower resolution image. Then we go up to the next higher
+            resolution and use the displacements as a starting point for running the alignment
+            algorithm again. Hence, the alignment takes much less time.
+        </p>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Multi-Scale Pyramid Alignment Results</h2>
+        <p>
+            To produce these images, I first cropped the sides and contrasted all three color channels, used
+            NCC to align the images. Then I used an image pyramid that scaled the image by a factor
+            of 2, had a minimum image size of 32x32 pixels, and used NCC with a displacement of 8
+            to align the images. Finally, I did a final crop before saving each image.
+            <br>
+            <br>
+            I had trouble getting several of these images to align despite trying both the
+            $\ell_2$ norm and NCC with different displacements. I think part of the reason they wouldn't align
+            as easily is that these images had a lot of noise, especially in green or blue areas.
+            I was, however, able to get them to align with Sobel edge detection,
+            which I describe below.
+        </p>
         <div class="image-row">
             <div class="image-item">
-                <img src="./media/cs180_0_2_1.jpg">
-                <p>3x</p>
+                <img src="./media/cathedral_pyramid.jpg">
+                <p>
+                    cathedral.jpg
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -1, y = 11
+                        <br>
+                        Green Displacement: x = 0, y = 3
+                    </span>
+                </p>
             </div>
             <div class="image-item">
-                <img src="./media/cs180_0_2_2.jpg">
-                <p>2x</p>
+                <img src="./media/monastery_pyramid.jpg">
+                <p>
+                    monastery.jpg
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 2, y = 3
+                        <br>
+                        Green Displacement: x = 2, y = -3
+                    </span>
+                </p>
             </div>
             <div class="image-item">
-                <img src="./media/cs180_0_2_3.jpg">
-                <p>1x</p>
+                <img src="./media/tobolsk_pyramid.jpg">
+                <p>
+                    tobolsk.jpg
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 3, y = 6
+                        <br>
+                        Green Displacement: x = 2, y = 3
+                    </span>
+                </p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/church_ncc.jpg">
+                <p>
+                    church.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -10, y = 32
+                        <br>
+                        Green Displacement: x = -8, y = 0
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/emir_ncc.jpg">
+                <p>
+                    emir.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 47, y = 40
+                        <br>
+                        Green Displacement: x = 24, y = 48
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/harvesters_ncc.jpg">
+                <p>
+                    harvesters.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 16, y = 0
+                        <br>
+                        Green Displacement: x = 16, y = 59
+                    </span>
+                </p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/icon_ncc.jpg">
+                <p>
+                    icon.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 23, y = 90
+                        <br>
+                        Green Displacement: x = 17, y = 41
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/italil_ncc.jpg">
+                <p>
+                    italil.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 35, y = 77
+                        <br>
+                        Green Displacement: x = 21, y = 38
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/lastochikino_ncc.jpg">
+                <p>
+                    lastochikino.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 0, y = 28
+                        <br>
+                        Green Displacement: x = -2, y = -4
+                    </span>
+                </p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/lugano_ncc.jpg">
+                <p>
+                    lugano.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -27, y = 92
+                        <br>
+                        Green Displacement: x = -10, y = 0
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/melons_ncc.jpg">
+                <p>
+                    melons.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 12, y = 176
+                        <br>
+                        Green Displacement: x = 8, y = 80
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/self_portrait_ncc.jpg">
+                <p>
+                    self_portrait.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 0, y = 0
+                        <br>
+                        Green Displacement: x = 0, y = 0
+                    </span>
+                </p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/siren_ncc.jpg">
+                <p>
+                    siren.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -25, y = 96
+                        <br>
+                        Green Displacement: x = -6, y = 50
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/three_generations_ncc.jpg">
+                <p>
+                    three_generations.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 10, y = 112
+                        <br>
+                        Green Displacement: x = 12, y = 56
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/tree_ncc.jpg">
+                <p>
+                    tree.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -68, y = 114
+                        <br>
+                        Green Displacement: x = -41, y = 75
+                    </span>
+                </p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/factory_ncc.jpg">
+                <p>
+                    factory.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 32, y = 0
+                        <br>
+                        Green Displacement: x = 22, y = 64
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/city_ncc.jpg">
+                <p>
+                    city.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -1, y = 0
+                        <br>
+                        Green Displacement: x = -1, y = 0
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/warehouse_ncc.jpg">
+                <p>
+                    warehouse.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 17, y = 112
+                        <br>
+                        Green Displacement: x = 11, y = 42
+                    </span>
+                </p>
             </div>
         </div>
     </div>
     &nbsp;
     <div class="part-box">
-        <h2>Part 3: The Dolly Zoom</h2>
-        <img src="./media/cs180_0_3.gif">
+        <h2>Sobel Edge Detection</h2>
+        <p>
+            Sobel edge detection works by convolving the image with matrices that detect
+            changes in the $x$ and $y$ directions. These matrices are
+            $$
+            K_x = \begin{bmatrix}
+                -1 & 0 & 1 \\
+                -2 & 0 & 2 \\
+                -1 & 0 & 1
+            \end{bmatrix} \text{ and } K_y = \begin{bmatrix}
+                -1 & -2 & -1 \\
+                0 & 0 & 0 \\
+                1 & 2 & 1
+            \end{bmatrix}.
+            $$
+            Then, once we have our convolved images $G_x$ and $G_y$, we compute the
+            magnitude of the gradient with
+            $$
+            M = \sqrt{G_x^2 + G_y^2},
+            $$
+            where $G_i^2$ just means squaring each element of $G_i$.
+        </p>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Sobel Edge Detection Results</h2>
+        <p>
+            To produce the following images, I used nearly the same method as for the Multi-Scale
+            pyramid alignment, except now I aligned using the Sobel edge detected images instead of
+            the raw images. To do this, I first visualized the edges each color channel
+            and manually adjusted the threshold for each channel so that it would align better.
+            Doing this, I was able to align all 18 of the below images.
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/cathedral_sobel.jpg">
+                <p>
+                    cathedral.jpg
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 3, y = 12
+                        <br>
+                        Green Displacement: x = 2, y = 5
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/monastery_sobel.jpg">
+                <p>
+                    monastery.jpg
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 3, y = 3
+                        <br>
+                        Green Displacement: x = 2, y = -3
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/tobolsk_sobel.jpg">
+                <p>
+                    tobolsk.jpg
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 3, y = 6
+                        <br>
+                        Green Displacement: x = 3, y = 3
+                    </span>
+                </p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/church_sobel.jpg">
+                <p>
+                    church.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -6, y = 54
+                        <br>
+                        Green Displacement: x = 3, y = 25
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/emir_sobel.jpg">
+                <p>
+                    emir.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 43, y = 104
+                        <br>
+                        Green Displacement: x = 24, y = 49
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/harvesters_sobel.jpg">
+                <p>
+                    harvesters.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 13, y = 124
+                        <br>
+                        Green Displacement: x = 15, y = 59
+                    </span>
+                </p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/icon_sobel.jpg">
+                <p>
+                    icon.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 23, y = 90
+                        <br>
+                        Green Displacement: x = 17, y = 40
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/italil_sobel.jpg">
+                <p>
+                    italil.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 35, y = 76
+                        <br>
+                        Green Displacement: x = 21, y = 38
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/lastochikino_sobel.jpg">
+                <p>
+                    lastochikino.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -8, y = 75
+                        <br>
+                        Green Displacement: x = -2, y = -2
+                    </span>
+                </p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/lugano_sobel.jpg">
+                <p>
+                    lugano.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -28, y = 92
+                        <br>
+                        Green Displacement: x = -16, y = 41
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/melons_sobel.jpg">
+                <p>
+                    melons.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 13, y = 178
+                        <br>
+                        Green Displacement: x = 10, y = 84
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/self_portrait_sobel.jpg">
+                <p>
+                    self_portrait.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 37, y = 174
+                        <br>
+                        Green Displacement: x = 27, y = 76
+                    </span>
+                </p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/siren_sobel.jpg">
+                <p>
+                    siren.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -25, y = 97
+                        <br>
+                        Green Displacement: x = -7, y = 50
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/three_generations_sobel.jpg">
+                <p>
+                    three_generations.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 11, y = 114
+                        <br>
+                        Green Displacement: x = 15, y = 56
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/tree_sobel.jpg">
+                <p>
+                    tree.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -68, y = 114
+                        <br>
+                        Green Displacement: x = -41, y = 75
+                    </span>
+                </p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/factory_sobel.jpg">
+                <p>
+                    factory.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 35, y = 146
+                        <br>
+                        Green Displacement: x = 24, y = 66
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/city_sobel.jpg">
+                <p>
+                    city.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = -22, y = 132
+                        <br>
+                        Green Displacement: x = -3, y = 62
+                    </span>
+                </p>
+            </div>
+            <div class="image-item">
+                <img src="./media/warehouse_sobel.jpg">
+                <p>
+                    warehouse.tif
+                    <br>
+                    <span style="font-size: 12px">
+                        Red Displacement: x = 17, y = 115
+                        <br>
+                        Green Displacement: x = 11, y = 43
+                    </span>
+                </p>
+            </div>
+        </div>
     </div>
 </body>
 </html>

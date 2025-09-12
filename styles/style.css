@@ -33,8 +33,11 @@ body {
 
 p,
 li {
-    font-size: 16px;
+    margin-left: 1cm;
+    margin-right: 1cm;
+    font-size: 20px;
     color: white;
+    line-height: 28px;
 }
 
 a {
@@ -48,7 +51,8 @@ a {
 .image-row {
     display: flex;
     justify-content: center;
-    gap: 10px
+    gap: 10px;
+    align-items: center;
 }
 
 .image-item {
