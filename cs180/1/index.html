@@ -11,7 +11,11 @@
     </script>
 </head>
 <body>
-    <h1>Project 1: Images of the Russian Empire</h1>
+    <div class="header">
+        <h1>Project 1: Images of the Russian Empire</h1>
+        <h3>Colorizing the Prokudin-Gorskii Photo Collection</h3>
+    </div>
+    &nbsp;
     <div class="part-box">
         <h2>About This Project</h2>
         <p>
@@ -22,7 +26,7 @@
     </div>
     &nbsp;
     <div class="part-box">
-        <h2>Automatic Contrasting</h2>
+        <h2>Contrasting</h2>
         <p>
             Before aligning the images, I wanted to do some preprocessing. The first thing
             I decided to do was contrast each image, mostly to make the images easier to work with.
@@ -32,12 +36,17 @@
     </div>
     &nbsp;
     <div class="part-box">
-        <h2>Automatic Cropping</h2>
+        <h2>Cropping</h2>
         <p>
             Next, I wanted to crop the all black or all white borders off of the edges of each
             image. To do this automatically, I just iteratively looked at each row or column at
             the edge of an image and checked if it was more than about 80% (almost) black or
             (almost) white. If it was, I cropped that row or column off of all three color channels.
+            <br>
+            <br>
+            For some tougher images that wouldn't align, I instead opted to crop more aggressively,
+            cropping 10% of the image's width off of the left and right edges and 10% of the image's
+            height off of the top and bottom edges.
         </p>
     </div>
     &nbsp;
@@ -48,7 +57,7 @@
             or $\ell_2$-norm, between the two images. If the two images are $I^{(1)}$ and $I^{(2)}$,
             then the $\ell_2$-norm between them is given by
             $$
-            \ell_2(I^{(1)}, I^{(2)}) = \sqrt{\sum_{i,j} \left(I^{(1)}_{ij} - I^{(2)}_{ij}\right)^2},
+            \ell_2\left(I^{(1)}, I^{(2)}\right) = \sqrt{\sum_{i,j} \left(I^{(1)}_{ij} - I^{(2)}_{ij}\right)^2},
             $$
             where a lower score indicates that the images are more aligned.
         </p>
@@ -62,7 +71,7 @@
             $$
             \frac{I^{(1)}}{||I^{(1)}||_2} \cdot \frac{I^{(2)}}{||I^{(1)}||_2},
             $$
-            where $||I^{(i)}||_2$ is the $\ell_2$ norm of $I^{(i)}$.
+            where $||I^{(i)}||_2$ is the $\ell_2$ norm of $I^{(i)}$ and $\langle \cdot \rangle$ is the dot product.
             Here, a higher score indicates that the images are more aligned.
         </p>
     </div>
@@ -72,7 +81,9 @@
         <p>
             To align the images, we search over a window of possible displacements
             between the two images and use one of our metrics to compute a score for each
-            displacement. The displacement that produces the best score is the one we choose.
+            displacement. The displacement that produces the best score is the one we choose
+            to align the images. We align two of the color channels with the third so that
+            when laid on top of each other, the color channels line up and produce a color image.
             To implement the displacements, I cropped from one edge and padded the
             other edge an equal amount to ensure the images stayed the same shape.
         </p>
@@ -151,11 +162,20 @@
             to align the images. Finally, I did a final crop before saving each image.
             <br>
             <br>
-            I had trouble getting several of these images to align despite trying both the
-            $\ell_2$ norm and NCC with different displacements. I think part of the reason they wouldn't align
-            as easily is that these images had a lot of noise, especially in green or blue areas.
-            I was, however, able to get them to align with Sobel edge detection,
-            which I describe below.
+            I had trouble getting emir.tif, harvesters.tif, lastochikino.tif, lugano.tif, and self_portrait.tif
+            to align, which I thing was because of different brightness levels across the color channels and
+            some noise. I had to tweak some of the parameters to get some of these images to align,
+            including the window size, the size of the coursest image, cropping strategies, and
+            aligning to the green channel instead of the blue channel.
+            <br>
+            <br>
+            The only image I couldn't get to align at this point was emir.tif, so I ended up
+            using Sobel edge detection, which I describe below, to align it.
+            <br>
+            <br>
+            Note that two of the extra images I used also didn't align, even with the ajustments
+            that allowed the other unaligned images to align. I was able to align these two
+            images using Sobel as well.
         </p>
         <div class="image-row">
             <div class="image-item">
@@ -214,9 +234,9 @@
                     emir.tif
                     <br>
                     <span style="font-size: 12px">
-                        Red Displacement: x = 47, y = 40
+                        Red Displacement: x = 16, y = 0
                         <br>
-                        Green Displacement: x = 24, y = 48
+                        Blue Displacement: x = -23, y = -49
                     </span>
                 </p>
             </div>
@@ -226,9 +246,9 @@
                     harvesters.tif
                     <br>
                     <span style="font-size: 12px">
-                        Red Displacement: x = 16, y = 0
+                        Red Displacement: x = -2, y = 64
                         <br>
-                        Green Displacement: x = 16, y = 59
+                        Blue Displacement:x = -16, y = -60
                     </span>
                 </p>
             </div>
@@ -264,9 +284,9 @@
                     lastochikino.tif
                     <br>
                     <span style="font-size: 12px">
-                        Red Displacement: x = 0, y = 28
+                        Red Displacement: x = -7, y = 77
                         <br>
-                        Green Displacement: x = -2, y = -4
+                        Blue Displacement: x = 2, y = 2
                     </span>
                 </p>
             </div>
@@ -278,9 +298,9 @@
                     lugano.tif
                     <br>
                     <span style="font-size: 12px">
-                        Red Displacement: x = -27, y = 92
+                        Red Displacement: x = -12, y = 52
                         <br>
-                        Green Displacement: x = -10, y = 0
+                        Blue Displacement: x = 16, y = -41
                     </span>
                 </p>
             </div>
@@ -302,9 +322,9 @@
                     self_portrait.tif
                     <br>
                     <span style="font-size: 12px">
-                        Red Displacement: x = 0, y = 0
+                        Red Displacement: x = 8, y = 98
                         <br>
-                        Green Displacement: x = 0, y = 0
+                        Blue Displacement: x = -29, y = -80
                     </span>
                 </p>
             </div>
@@ -354,9 +374,9 @@
                     factory.tif
                     <br>
                     <span style="font-size: 12px">
-                        Red Displacement: x = 32, y = 0
+                        Red Displacement: x = 0, y = 0
                         <br>
-                        Green Displacement: x = 22, y = 64
+                        Blue Displacement: x = -24, y = -64
                     </span>
                 </p>
             </div>
@@ -366,9 +386,9 @@
                     city.tif
                     <br>
                     <span style="font-size: 12px">
-                        Red Displacement: x = -1, y = 0
+                        Red Displacement: x = 0, y = 0
                         <br>
-                        Green Displacement: x = -1, y = 0
+                        Blue Displacement: x = 3, y = -62
                     </span>
                 </p>
             </div>
