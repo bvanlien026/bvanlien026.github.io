@@ -3,7 +3,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Benji Van Lienden - CS 180 Project 0</title>
+    <title>Benji Van Lienden - CS 180 Project 3</title>
     <link href="./styles/style.css" rel="stylesheet" />
     <script>
         window.MathJax = {
@@ -20,678 +20,283 @@
 </head>
 <body>
     <div class="header">
-        <h1>Project 2: Fun with Filters and Frequencies</h1>
+        <h1>Project 3: (Auto)stitching and Photo Mosaics</h1>
     </div>
     &nbsp;
     <div class="part-box">
-        <h2>Part 1.1: Convolutions from Scratch!</h2>
+        <h2>About This Project</h2>
         <p>
-            When we apply a convolution to an image, we shift a kernel (filter) over the entire image,
-            calculating a kind of dot product over each region of the image. First, we need to
-            pad the image so that at the edges, we don't try to convolve the kernel with
-            nonexistent pixels. I implemented padding as follows:
+            In Part A of this project, our goal is to create an algorithm that,
+            given two images and a set of point correspondences between the images, will
+            warp one image so that it has the same perspective as the second image.
+            Then, we can align the two images to create a mosaic.
         </p>
-        <pre><code>
-    def pad_image(im, ker):
-
-        im_height, im_width = im.shape
-        k_height, k_width = ker.shape
-
-        pad_h, pad_w = k_height // 2, k_width // 2
-        
-        h_pad_arr = np.zeros((pad_h, im_width))
-        w_pad_arr = np.zeros((im_height + 2 * pad_h, pad_w))
-        
-        im_pad_h = np.concatenate((h_pad_arr, im, h_pad_arr), axis=0)
-        im_pad = np.concatenate((w_pad_arr, im_pad_h, w_pad_arr), axis=1)
-
-        return im_pad
-        </code></pre>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Part A.1: Shoot the Pictures</h2>
         <p>
-            Next, to do the actual convolution, we need to flip the kernel along the first
-            two axes. Then, we can iterate over each pixel in the image, align the center
-            of the kernel with that pixel, and take a dot product. This can be done unoptimally
-            with four loops:
-        </p>
-        <pre><code>
-    def convolve_unopt(im, ker):
-
-        im_padded = pad_image(im, ker)
-        
-        ker = np.flip(ker, axis=0)
-        ker = np.flip(ker, axis=1)
-        ker_h, ker_w = ker.shape
-
-        height, width = im.shape
-        G = np.zeros_like(im).astype(np.float64)
-        
-        for i in range(height):
-            for j in range(width):
-                for k in range(ker_h):
-                    for l in range(ker_w):
-                        G[i, j] += ker[k, l] * im_padded[i+k, j+l]
-
-        return G
-        </code></pre>
-        <p>
-            We can optimize this by vectorizing the code. Instead of iterating over every pixel
-            of the image for every pixel of the kernel, we can just iterate over the kernel and
-            multiply each of its pixels by an entire range of the image's pixels. Doing this, my
-            implementation becomes:
-        </p>
-                <pre><code>
-    def convolve(im, ker):
-
-        im_padded = pad_image(im, ker)
-        
-        ker = np.flip(ker, axis=0)
-        ker = np.flip(ker, axis=1)
-        ker_h, ker_w = ker.shape
-
-        height, width = im.shape
-        G = np.zeros_like(im).astype(np.float64)
-
-        for i in range(ker_h):
-            for j in range(ker_w):
-                G += ker[i, j] * im_padded[i:i+height, j:j+width]
-
-        return G
-        </code></pre>
-        <p>
-            Now, both of these convolution functions should behave identically to the
-            <code>scipy.signal.convolve2d</code> function (with <code>mode="same"</code>).
-            To test this, I convolved a picture of my dog with a 9x9 box filter,
-            which is given by
-            $$
-            K_\text{box} = \frac{1}{81} \begin{bmatrix}
-                1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
-                1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
-                1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
-                1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
-                1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
-                1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
-                1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
-                1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
-                1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1
-            \end{bmatrix}.
-            $$
-            Using my two convolve functions as well as <code>scipy.signal.convolve2d</code>
-            with <code>mode="same"</code>, I got the following results:
+            The first set of photos I took was of a kitchen, with the refrigerator at the center:
         </p>
         <div class="image-row">
             <div class="image-item">
-                <img src="./media/fluffy/fluffy_resized.jpg">
-                <p>Original</p>
+                <img src="./media/kitchen/kitchen_1_resized.jpg">
             </div>
             <div class="image-item">
-                <img src="./media/fluffy/fluffy_convolve_unopt.jpg">
-                <p><code>convolve_unopt</code></p>
+                <img src="./media/kitchen/kitchen_2_resized.jpg">
             </div>
             <div class="image-item">
-                <img src="./media/fluffy/fluffy_convolve_opt.jpg">
-                <p><code>convolve</code></p>
-            </div>
-            <div class="image-item">
-                <img src="./media/fluffy/fluffy_convolve2d.jpg">
-                <p><code>convolve2d</code></p>
+                <img src="./media/kitchen/kitchen_3_resized.jpg">
             </div>
         </div>
         <p>
-            As seen above, my two functions behave identically to
-            <code>scipy.signal.convolve2d</code>. The only difference is that
-            <code>convolve_unopt</code> runs considerably slower than the other two.
+            Next, I took photos of Hearst Mining Circle as seen from the 9th floor of Evans Hall:
         </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/hearst/hearst_left_resized.jpg">
+            </div>
+            <div class="image-item">
+                <img src="./media/hearst/hearst_middle_resized.jpg">
+            </div>
+            <div class="image-item">
+                <img src="./media/hearst/hearst_right_resized.jpg">
+            </div>
+        </div>
         <p>
-            Next, I convolved a picture of myself with
-            the box filter as well as the finite difference operators given by
+            Finally, I took photos of a bridge near Haviland Hall:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/bridge/bridge_left_resized.jpg">
+            </div>
+            <div class="image-item">
+                <img src="./media/bridge/bridge_middle_resized.jpg">
+            </div>
+            <div class="image-item">
+                <img src="./media/bridge/bridge_right_resized.jpg">
+            </div>
+        </div>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Part A.2: Recover Homographies</h2>
+        <p>
+            To warp one image into alignment with another image, we compute the homography $H$,
+            the transformation between the points of the images. $H$ is a 3x3 matrix given by
             $$
-            D_x = \begin{bmatrix}
-                1 & 0 & -1
-            \end{bmatrix} \quad \text{and} \quad D_y = \begin{bmatrix}
-                1 \\ 0 \\ -1
+            H = \begin{bmatrix}
+                a & b & c \\
+                d & e & f \\
+                g & h & 1
             \end{bmatrix}
             $$
-            and got the following results:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/self_portrait/self_portrait_gray.jpg">
-                <p>Original</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/self_portrait/self_portrait_box.jpg">
-                <p>$K_\text{box}$</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/self_portrait/self_portrait_D_x.jpg">
-                <p>$D_x$</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/self_portrait/self_portrait_D_y.jpg">
-                <p>$D_y$</p>
-            </div>
-        </div>
-    </div>
-    &nbsp;
-    <div class="part-box">
-        <h2>Part 1.2: Finite Difference Operator</h2>
-        <p>
-            Now, we will use the finite difference operators $D_x$ and $D_y$ defined above
-            to find the edges of an image of a cameraman. First, we convolve the image with
-            $D_x$ and $D_y$. Note that from now on, I convolve using
-            <code>scipy.signal.convolve2d</code> with <code>mode="full"</code>.
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/cameraman/cameraman.png">
-                <p>Original</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/cameraman/cameraman_D_x.jpg">
-                <p>$D_x$</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/cameraman/cameraman_D_y.jpg">
-                <p>$D_y$</p>
-            </div>
-        </div>
-        <p>
-            Next, if the two gradient images are $I_{D_x}$ and $I_{D_y}$,
-            we compute the gradient magnitude image using the formula
+            and relates the points of two images by $p' = Hp$. To compute the entries of $H$,
+            we can put them into a vector
             $$
-            M = \sqrt{(I_{D_x})^2 + (I_{D_y})^2}
+            h = [a, b, c, d, e, f, g, h]^\top
             $$
-            where the square and square root are elementwise. Then, we can binarize
-            the gradient magnitude image by setting all values above a threshold to 1
-            and all values below the threshold to 0. I chose a threshold of
-            $0.2 \cdot \max(M)$ to get the following results:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/cameraman/cameraman.png">
-                <p>Original</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/cameraman/cameraman_mag.jpg">
-                <p>$M$</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/cameraman/cameraman_edge.jpg">
-                <p>$M > 0.2 \cdot \max(M)$</p>
-            </div>
-        </div>
-    </div>
-    &nbsp;
-    <div class="part-box">
-        <h2>Part 1.3: Derivative of Gaussian (DoG) Filter</h2>
-        <p>
-            Now, we are going to convolve the image with a 2D Gaussian kernel before
-            computing the gradients. I used a Gaussian kernel with <code>ksize = 21</code>
-            and <code>sigma = 5</code>. After convolving the image with the Gaussian and
-            repeating the steps from above, I got the following:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/cameraman/cameraman.png">
-                <p>Original</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/cameraman/cameraman_DoG_separate_mag.jpg">
-                <p>$M$</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/cameraman/cameraman_DoG_separate_edge.jpg">
-                <p>$M > 0.4 \cdot \max(M)$</p>
-            </div>
-        </div>
-        <p>
-            The edge lines are a lot thicker now, so I was able to choose a higher
-            threshold to remove more noise without losing the most important edges.
-            However, the edges aren't as precise as they were before.
-        </p>
-        <p>
-            Since convolution is associative, we can actually convolve the Gaussian kernel
-            with $D_x$ and $D_y$ to create Derivative of Gaussian filters, which we can then
-            apply to images to get an equivalent result as above. First, we convolve the
-            2D Gaussian $G$ with each of $D_x$ and $D_y$ to get
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/dog_filters/gaussian_D_x.jpg">
-                <p>$G * D_x$</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/dog_filters/Gaussian_D_y.jpg">
-                <p>$G * D_y$</p>
-            </div>
-        </div>
-        <p>
-            Convolving the image with each of these kernels and then computing $M$ in the same
-            way as before produces identical results:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/cameraman/cameraman.png">
-                <p>Original</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/cameraman/cameraman_DoG_mag.jpg">
-                <p>$M$</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/cameraman/cameraman_DoG_edge.jpg">
-                <p>$M > 0.4 \cdot \max(M)$</p>
-            </div>
-        </div>
-    </div>
-    &nbsp;
-    <div class="part-box">
-        <h2>Part 2.1: Image "Sharpening"</h2>
-        <p>
-            If we blur an image (such as by convolving it with a Gaussian filter) and then subtract
-            the blurred image from the original image, we will be left with just the high frequency
-            details of the image. Then, if we add these details to the original image, the image
-            will look sharper.
-        </p>
-        <p>
-            I applied all these steps to a colored image of the Taj Mahal. To do this, I applied each
-            step to each color channel separately, then combined them at the end.
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/taj/taj.jpg">
-                <p>Original</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/taj/taj_sharp_1.jpg">
-                <p>Sharpened</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/taj/taj_blur.jpg">
-                <p>Blurred</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/taj/taj_high_freq.jpg">
-                <p>High Frequency (x25)</p>
-            </div>
-        </div>
-        <p>
-            We can do all of these steps in one convolution using the unsharp mask filter, which
-            is given by
+            and set up a system of equations $Ah = b$. If we have $n$ points $p = (x_i, y_i)$ of one
+            image corresponding to $p' = (u_i, v_i)$ of another image, then our system will look like
             $$
-            (1 + \alpha) E - \alpha G,
+            \begin{bmatrix}
+                u_1 \\ v_1 \\ u_2 \\ v_2 \\ \vdots \\ u_n \\ v_n
+            \end{bmatrix} = \begin{bmatrix}
+                x_1 & y_1 & 1 & 0 & 0 & 0 & -u_1x_1 & -u_1y_1 \\
+                0 & 0 & 0 & x_1 & y_1 & 1 & -v_1x_1 & -v_1y_1 \\
+                x_2 & y_2 & 1 & 0 & 0 & 0 & -u_2x_2 & -u_2y_2 \\
+                0 & 0 & 0 & x_2 & y_2 & 1 & -v_2x_2 & -v_2y_2 \\
+                \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots \\
+                x_n & y_n & 1 & 0 & 0 & 0 & -u_nx_n & -u_ny_n \\
+                0 & 0 & 0 & x_n & y_n & 1 & -v_nx_n & -v_ny_n
+            \end{bmatrix} \begin{bmatrix}
+                a \\ b \\ c \\ d \\ e \\ f \\ g \\ h
+            \end{bmatrix}
             $$
-            where $E$ is the identity kernel, $G$ is the gaussian kernel, and $\alpha$ determines the
-            sharpening strength. 
+            and we can solve it using least squares.
         </p>
         <p>
-            To create this filter, I used a Gaussian with <code>ksize = 25</code>
-            and <code>sigma = 1</code>, and used several different $\alpha$ values. I convolved
-            the image with these filters, and got the following results:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/taj/taj.jpg">
-                <p>Original</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/taj/taj_sharp_2.jpg">
-                <p>$\alpha = 2$</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/taj/taj_sharp_4.jpg">
-                <p>$\alpha = 4$</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/taj/taj_sharp_8.jpg">
-                <p>$\alpha = 8$</p>
-            </div>
-        </div>
-        <p>
-            Next, I sharpened a photo of a waterfall I took near Lake Tahoe and got the
-            following results:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/waterfall/waterfall_resized.jpg">
-                <p>Original</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/waterfall/waterfall_sharp.jpg">
-                <p>Sharpened</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/waterfall/waterfall_blur.jpg">
-                <p>Blurred</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/waterfall/waterfall_high_freq.jpg">
-                <p>High Frequency (x25)</p>
-            </div>
-        </div>
-        <p>
-            Finally, I blurred an image of an arch in Bryce Canyon National Park, and tried
-            to re-sharpen it:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/arch/arch_resized.jpg">
-                <p>Original</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/arch/arch_blur.jpg">
-                <p>Blurred</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/arch/arch_resharp.jpg">
-                <p>Re-Sharpened</p>
-            </div>
-        </div>
-        <p>
-            Re-sharpening the blurred image successfully made it look less blurry, but the
-            resharpened image still lacks a lot of the fine details that the original
-            image had.
-        </p>
-    </div>
-    &nbsp;
-    <div class="part-box">
-        <h2>Part 2.2: Hybrid Images</h2>
-        <p>
-            We were able to sharpen images by utilizing the low and high frequencies in the
-            images. Now, we will combine two images by adding the high frequencies of one
-            image to the low frequencies of another image. This results in images that look
-            like one image from up close (or zoomed in), but another image from far away
-            (or zoomed out).
-        </p>
-        <p>
-            First, we will combine the low frequencies from a photo of Derek to the high
-            frequencies of his cat Nutmeg. First, we need to align the images:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/derek.jpg">
-                <p>Derek</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/nutmeg.jpg">
-                <p>Nutmeg</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/derek_cropped.jpg">
-                <p>Derek, Aligned & Cropped</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/nutmeg_cropped.jpg">
-                <p>Nutmeg, Aligned & Cropped</p>
-            </div>
-        </div>
-        <p>
-            Then, we compute the low frequencies of Derek's image and the high frequencies of
-            Nutmeg's image. To do this, I convolved each image with a Gaussian filter with
-            <code>ksize = 51</code> and <code>sigma = 12</code>; then, I subtracted the blurred
-            Nutmeg image from the original image. Finally, I added the two frequency images
-            together to get the following:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/derek_cropped.jpg">
-                <p>Derek</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/derek_low.jpg">
-                <p>Derek Low Frequency</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/nutmeg_cropped.jpg">
-                <p>Nutmeg</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/nutmeg_high.jpg">
-                <p>Nutmeg High Frequency</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/derek_nutmeg_hybrid.jpg">
-                <p>Hybrid</p>
-            </div>
-        </div>
-        <p>
-            We can also take the Fourier transform of each image and see how the frequencies
-            change during this process:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/fft_derek.jpg">
-                <p>Derek</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/fft_derek_low.jpg">
-                <p>Derek Low Frequency</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/fft_nutmeg.jpg">
-                <p>Nutmeg</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/fft_nutmeg_high.jpg">
-                <p>Nutmeg High Frequency</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/derek_nutmeg/fft_derek_nutmeg_hybrid.jpg">
-                <p>Hybrid</p>
-            </div>
-        </div>
-        <p>
-            I also created a hybrid image using the low frequencies from a photo I took of a
-            bridge on Hallasan in South Korea, and the high frequencies from another photo I took
-            of a street in Taipei, Taiwan:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/taipei_hallasan/hallasan_cropped.jpg">
-                <p>Bridge on Hallasan</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/taipei_hallasan/taipei_cropped.jpg">
-                <p>Street in Taipei</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/taipei_hallasan/taipei_hallasan_hybrid.jpg">
-                <p>Hybrid</p>
-            </div>
-        </div>
-        <p>
-            Finally, I created a hybrid image with a King of Spades as the low frequencies and
-            a Queen of Spades as the high frequencies:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/cards/king_cropped.jpg">
-                <p>King of Spades</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/cards/queen_cropped.jpg">
-                <p>Queen of Spades</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/cards/king_queen_hybrid.jpg">
-                <p>Hybrid</p>
-            </div>
-        </div>
-    </div>
-    &nbsp;
-    <div class="part-box">
-        <h2>Part 2.3: Gaussian and Laplacian Stacks</h2>
-        <p>
-            In a Gaussian stack, starting from the original image, each level is computed
-            by convolving the image on the previous level with a Gaussian filter, making the
-            image blurrier on each level.
-        </p>
-        <p>
-            In a Laplacian stack, each level $i$ can be computed by subtracting level $i+1$
-            of the Gaussian stack from level $i$ of the Gaussian stack, resulting in details
-            getting isolated at each level.
-        </p>
-        <p>
-            Then, we can use masks like the following to select only parts of each image:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/orange_apple/mask_stack/mask_layer_0.jpg">
-                <p>Layer 0 Mask</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/orange_apple/mask_stack/mask_layer_2.jpg">
-                <p>Layer 2 Mask</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/orange_apple/mask_stack/mask_layer_6.jpg">
-                <p>Layer 6 Mask</p>
-            </div>
-        </div>
-        <p>
-            We want to use Laplacian stacks with the above masks to combine the following
-            photos of an apple and an orange:
-        </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/orange_apple/apple.jpeg">
-                <p>Apple</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/orange_apple/orange.jpeg">
-                <p>Orange</p>
-            </div>
-        </div>
-        <p>
-            Creating Laplacian stacks for each image, applying masks to them, combining
-            each layer to form a new stack, and then finally collapsing each stack,
+            To actually implement this with two images, first we need to mark correspondences
+            between the two images. Doing this manually for some of the above images,
             we get the following:
         </p>
         <div class="image-row">
             <div class="image-item">
-                <img src="./media/orange_apple/apple_stack/apple_layer_0.jpg">
-                <p>Apple Layer 0</p>
+                <img src="./media/kitchen/kitchen_1_correspondences.jpg">
+                <p>Kitchen Image 1 Points</p>
             </div>
             <div class="image-item">
-                <img src="./media/orange_apple/orange_stack/orange_layer_0.jpg">
-                <p>Orange Layer 0</p>
+                <img src="./media/kitchen/kitchen_2_correspondences.jpg">
+                <p>Kitchen Image 2 Points</p>
             </div>
             <div class="image-item">
-                <img src="./media/orange_apple/oraple_stack/oraple_layer_0.jpg">
-                <p>Oraple Layer 0</p>
+                <img src="./media/hearst/hearst_left_correspondences.jpg">
+                <p>Hearst Mining Circle Image 1 Points</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/hearst/hearst_middle_correspondences.jpg">
+                <p>Hearst Mining Circle Image 2 Points</p>
             </div>
         </div>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/orange_apple/apple_stack/apple_layer_2.jpg">
-                <p>Apple Layer 2</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/orange_apple/orange_stack/orange_layer_2.jpg">
-                <p>Orange Layer 2</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/orange_apple/oraple_stack/oraple_layer_2.jpg">
-                <p>Oraple Layer 2</p>
-            </div>
-        </div>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/orange_apple/apple_stack/apple_layer_6.jpg">
-                <p>Apple Layer 6</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/orange_apple/orange_stack/orange_layer_6.jpg">
-                <p>Orange Layer 6</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/orange_apple/oraple_stack/oraple_layer_6.jpg">
-                <p>Oraple Layer 6</p>
-            </div>
-        </div>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/orange_apple/apple_mask.jpg">
-                <p>Apple (Masked)</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/orange_apple/orange_mask.jpg">
-                <p>Orange (Masked)</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/orange_apple/oraple.jpg">
-                <p>Oraple</p>
-            </div>
-        </div>
+        <p>
+            The homologies corresponding to these correspondences are
+            $$
+            H_\text{kitchen} = \begin{bmatrix}
+                1.83052621e+00 & 4.76249658e-02 & -3.51938539e+02 \\
+                4.94162924e-01 & 1.51133695e+00 & -2.37072711e+02 \\
+                1.06390846e-03 & 3.90405294e-05 & 1.00000000e+00
+            \end{bmatrix}
+            $$
+            and
+            $$
+            H_\text{hearst} = \begin{bmatrix}
+                1.35804523e+00 & 4.48875970e-02 & -3.64647562e+02 \\
+                2.05880819e-01 & 1.21072234e+00 & -7.52359006e+01 \\
+                4.96702491e-04 & -3.37418688e-05 & 1.00000000e+00
+            \end{bmatrix}
+            $$
+        </p>
     </div>
     &nbsp;
     <div class="part-box">
-        <h2>Part 2.4: Multiresolution Blending</h2>
+        <h2>Part A.3: Warp the Images</h2>
         <p>
-            After successfully creating the oraple,
-            I decided to try merging a photo of a white horse with a photo of a white bird
-            using a nonlinear mask, with the hopes of creating Pegasus, a horse with wings.
+            Now that we have computed homographies for our images, we want to use them
+            to warp the images into alignment. To do this, we implement inverse warping
+            combined with either Nearest Neighbor Interpolation and Bilinear Interpolation.
+        </p>
+        <p>
+            We use inverse warping to avoid holes appearing in the output image. The idea is
+            that instead of directly applying $H$ in the formula $p' = Hp$, we instead take its
+            inverse and use the formula $H^{-1}p' = p$. For each point in the output image,
+            we apply $H^{-1}$ to get a point from the input image. Since the point we land on
+            in the input image may not be a whole number, we use interpolation to choose a value.
+        </p>
+        <p>
+            For Nearest Neighbor Interpolation, we round the point we land on to the nearest
+            whole number on both the $x$ and $y$ axes. Then, we take the pixel value at the
+            rounded pixel position and copy it to the output image.
+        </p>
+        <p>
+            For Bilinear Interpolation, we take a weighted average of the four pixels
+            around the pixel we land on. To do this, we compute the values of the four pixels,
+            compute the areas between the landing point and each neighboring pixel, and multiply
+            the values with their corresponding areas. Then we sum up all these products and
+            copy the resulting value to the output image.
+        </p>
+        <p>
+            In addition to this, I also computed the warped locations of the image corners
+            and used them to find the maximum size of the warped image, so that the entire image
+            could be displayed on the output.
+        </p>
+        <p>
+            To test my functions, I performed rectification on some images by warping a photo
+            of rectangular objects to make them rectangular in the image.
+        </p>
+        <p>
+            First, I mapped a Berkeley Statistics sign in Evans Hall to a 300x300 square:
         </p>
         <div class="image-row">
             <div class="image-item">
-                <img src="./media/dove_horse/aligned_horse.jpg">
-                <p>Horse, Aligned</p>
+                <img src="./media/berkeley_stats/berkeley_stats_compressed.jpg">
+                <p>Original</p>
             </div>
             <div class="image-item">
-                <img src="./media/dove_horse/aligned_dove.jpg">
-                <p>Bird, Aligned</p>
+                <img src="./media/berkeley_stats/nearest_neighber_cropped.jpg">
+                <p>Nearest Neighbor (Cropped)</p>
             </div>
             <div class="image-item">
-                <img src="./media/dove_horse/dove_horse_mask.jpg">
-                <p>Mask</p>
+                <img src="./media/berkeley_stats/bilinear_cropped.jpg">
+                <p>Bilinear (Cropped)</p>
             </div>
         </div>
         <p>
-            I also decided to use the sharpening techniques from earlier to see if it would
-            turn out looking better.
+            Next, I mapped some sea animal pictures on my wall to a 340x440 rectangle:
         </p>
         <div class="image-row">
             <div class="image-item">
-                <img src="./media/dove_horse/pegasus.jpg">
-                <p>Pegasus</p>
+                <img src="./media/sea_animals/sea_animals.jpg">
+                <p>Original</p>
             </div>
             <div class="image-item">
-                <img src="./media/dove_horse/pegasus_sharp.jpg">
-                <p>Pegasus, Sharpened</p>
+                <img src="./media/sea_animals/nearest_neighbor_cropped.jpg">
+                <p>Nearest Neighbor (Cropped)</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/sea_animals/bilinear_cropped.jpg">
+                <p>Bilinear (Cropped)</p>
             </div>
         </div>
         <p>
-            Next, I tried putting the Santa Monica Pier amusement park on the surface of the
-            moon:
+            Bilinear Interpolation seemed to produce marginally better results than
+            Nearest Neighbor Interpolation, and both of my implementations seemed to run
+            pretty slowly on larger images.
         </p>
-        <div class="image-row">
-            <div class="image-item">
-                <img src="./media/moon_amusement/moon_cropped.jpg">
-                <p>Moon, Aligned</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/moon_amusement/amusement_cropped.jpg">
-                <p>Amusement Park, Aligned</p>
-            </div>
-            <div class="image-item">
-                <img src="./media/moon_amusement/mask_ma.jpg">
-                <p>Mask</p>
-            </div>
-        </div>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Part A.4: Blend the Images into a Mosaic</h2>
         <p>
-            Again, I decided to sharpen the final result:
+            Finally, with our images warped, we can align and blend them into a mosaic. First, I
+            modified and used code from Project 2 to align the images. Then, I drew a mask for each
+            pair of images and used laplacian stacks with just 2 layers to blend the images.
+            I got the following results:
+
+        </p>
+        <p style="text-align: center;">
+            Kitchen Images Separated
         </p>
         <div class="image-row">
             <div class="image-item">
-                <img src="./media/moon_amusement/moon_amusement.jpg">
-                <p>Amusement Park on Moon</p>
+                <img src="./media/kitchen/kitchen_1_resized.jpg">
             </div>
             <div class="image-item">
-                <img src="./media/moon_amusement/moon_amusement_sharp.jpg">
-                <p>Sharpened</p>
+                <img src="./media/kitchen/kitchen_2_resized.jpg">
             </div>
+            <div class="image-item">
+                <img src="./media/kitchen/kitchen_3_resized.jpg">
             </div>
         </div>
+        <p style="text-align: center;">
+            Kitchen Mosaic
+        </p>
+        <img src="./media/kitchen/kitchen_123.jpg">
+        <p style="text-align: center;">
+            Hearst Mining Circle Images Separated
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/hearst/hearst_left_resized.jpg">
+            </div>
+            <div class="image-item">
+                <img src="./media/hearst/hearst_middle_resized.jpg">
+            </div>
+            <div class="image-item">
+                <img src="./media/hearst/hearst_right_resized.jpg">
+            </div>
+        </div>
+        <p style="text-align: center;">
+            Hearst Mining Circle Mosaic
+        </p>
+        <img src="./media/hearst/hearst.jpg">
+        <p style="text-align: center;">
+            Bridge Images Separated
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/bridge/bridge_left_resized.jpg">
+            </div>
+            <div class="image-item">
+                <img src="./media/bridge/bridge_middle_resized.jpg">
+            </div>
+            <div class="image-item">
+                <img src="./media/bridge/bridge_right_resized.jpg">
+            </div>
+        </div>
+        <p style="text-align: center;">
+            Bridge Mosaic
+        </p>
+        <img src="./media/bridge/bridge.jpg">
     </div>
 </body>
 </html>
