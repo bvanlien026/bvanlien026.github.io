@@ -298,5 +298,168 @@
         </p>
         <img src="./media/bridge/bridge.jpg">
     </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Part B.1: Harris Corner Detection</h2>
+        <p>
+            The first step to automate the alignment from above is to automatically detect
+            corners in the image. The idea here is that for any point on the image, that point
+            is a corner if translating a small region around the point in any direction causes
+            a significant change in all directions. The basic function is defined for us in
+            <code>harris.py</code>.
+        </p>
+        <p>
+            We also want to implement Adaptive Non-Maximal Suppression. The idea here is to get
+            corners that are more spread out throughout the image. This works by sorting the points
+            by corner strength and then only taking corners within a certain radius of the
+            stronger corners. Implementing ANMS on the kitchen images gives the following:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/kitchen/kitchen_1_harris_corners_no_anms.jpg">
+                <p>Without ANMS</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/kitchen/kitchen_1_harris_corners_anms.jpg">
+                <p>With ANMS</p>
+            </div>
+        </div>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Part B.2: Feature Descriptor Extraction</h2>
+        <p>
+            Next, we want to sample the features around each corner so that we can match them
+            between images later. To do this, we sample an 8x8 patch from a 40x40 window around
+            each corner, where each pixel in the 8x8 patch is 5 pixels apart in the 40x40 window.
+            Running this on the corners detected in the kitchen image, we get the following
+            feature descriptors (40 shown of the 75 computed):
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/kitchen/kitchen_1_descs.png">
+            </div>
+        </div>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Part B.3: Feature Matching</h2>
+        <p>
+            Now we have two sets of feature descriptors, one for each image, and we want to use
+            them to match corners that look similar to each other. To do this, we first take the
+            Euclidean distance between each pair of points. THen for each point, we compute the
+            ratio of the distance from the first nearest neighbor and the distance from the second
+            nearest neighbor. If the ratio is less than 0.8, we keep that point and its nearest
+            neighbor as a match.
+        </p>
+        <p>
+            If we use the above to match points between two images we want to warp into
+            alignment, we get the following correspondences:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/kitchen/kitchen_12_correspondences.jpg">
+            </div>
+        </div>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Part B.4: RANSAC for Robust Homography</h2>
+        <p>
+            Not all the correspondences found were correct. However, we can assume that the
+            correct correspondences will have the most inliers, meaning that a homography
+            will warp all of those points into the correct position. To find the inliers, we
+            use RANSAC. to do this, we select four feature pairs randomly, compute a homography
+            $H$ between them, and then compute the number of point pairs $(p, p^*)$ such that
+            $\text{dist}(p^*, Hp) < \varepsilon$ for some threshold $\varepsilon$. Doing this
+            many times, the inliers are the largest set of points for which
+            $\text{dist}(p^*, Hp) < \varepsilon$.
+        </p>
+        <p>
+            Running RANSAC on our matches and plotting only the inliers, we get:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/kitchen/kitchen_12_inliers.jpg">
+            </div>
+        </div>
+        <p>
+            Finally, we can use least squares on the set of inliers to compute a homography
+            which we use to warp the images:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/kitchen/kitchen_1_warped_ransac.jpg">
+                <p>Image 1, Warped with RANSAC</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/kitchen/kitchen_2_resized.jpg">
+                <p>Image 2</p>
+            </div>
+        </div>
+        <p>
+            At this point, to automatically align the images, I just tracked two inliers
+            through the warping process and used the adapted code from Project 2 to align the
+            images. I then used averaging to blend the images automatically. This caused more
+            artifacting than the method I used before, but with the tradeoff that I was able to
+            do it automatically instead of through a 10-minute manual process. Below are the
+            results:
+        </p>
+        <p>
+            First, the kitchen:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/kitchen/kitchen_123.jpg">
+                <p>Manual</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/kitchen/kitchen_123_auto.jpg">
+                <p>Automatic</p>
+            </div>
+        </div>
+        <p>
+            Next, Hearst Mining Circle:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/hearst/hearst.jpg">
+                <p>Manual</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/hearst/hearst_auto.jpg">
+                <p>Automatic</p>
+            </div>
+        </div>
+        <p>
+            I couldn't get all the bridge images to warp because the Harris corner detector couldn't
+            detect enough corners. I suspect this is because there is a lot of noise in the trees
+            and bushes. Instead, I only aligned two of the images:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/bridge/bridge_auto.jpg">
+            </div>
+        </div>
+        <p>
+            I also took some photos of the campanile and automatically blended them:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/campanile/campanile_bottom_resized.jpg">
+            </div>
+            <div class="image-item">
+                <img src="./media/campanile/campanile_middle_resized.jpg">
+            </div>
+            <div class="image-item">
+                <img src="./media/campanile/campanile_top_resized.jpg">
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/campanile/campanile_auto.jpg">
+            </div>
+        </div>
+    </div>
 </body>
 </html>
