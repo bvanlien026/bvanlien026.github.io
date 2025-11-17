@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<link href="/styles/style.css" rel="stylesheet" />
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Benji Van Lienden - CS 180 Project 4</title>
+    <link href="./styles/style.css" rel="stylesheet" />
+    <script>
+        window.MathJax = {
+            tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$','$$'], ['\\[','\\]']]
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+    </script>
+</head>
+<body>
+    <div class="header">
+        <h1>Project 4: Neural Radiance Field</h1>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>About This Project</h2>
+        <p>
+            In this project, we will use Neural Radiance Fields to represent 3D spaces. First we
+            will use Neural Fields to fit 2D images, then we will extend to fit 3D spaces and
+            generate novel views of 3D objects.
+        </p>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Part 0: Calibrating Your Camera and Capturing a 3D Scan</h2>
+        <p>
+            The first thing we do is take photos of a 3D object, using ArUco tags to detect
+            keypoints in the images so we can create a dataset to train on. After taking photos,
+            calibrating my camera, and visualizing the cameras, I got the following:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/teaset/visualization/visualization_1.jpg">
+            </div>
+            <div class="image-item">
+                <img src="./media/teaset/visualization/visualization_2.jpg">
+            </div>
+        </div>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Part 1: Fit a Neural Field to a 2D Image</h2>
+        <p>
+            Now, we will use Neural Fields to fit and represent 2D images. The model
+            architecture I used for this was a Multilayer Perceptron with four linear layers,
+            each followed by ReLU layers with the exception of the last layer, which was followed
+            by Sigmoid layers. Additionally, the model applies Sinusoidal Positional Encoding
+            to the input, which applies a series of sinusoidal functions to the input
+            coordinates to increase its dimensionality. the PE function is given by
+            $$
+            PE(x) = \{x, sin(2^0\pi x), cos(2^0\pi x), sin(2^1\pi x), cos(2^1\pi x),
+                \dots, sin(2^{L-1}\pi x), cos(2^{L-1}\pi x)\}
+            $$
+            for some $L$. I used an $L$ value of $10$, a model width of $256$, and
+            a learning rate of $1$e-$2$.
+        </p>
+        <p>
+            To measure the accuracy of the model, we will use Peak signal-to-noise
+            ratio (PSNR), which is computed from MSE by
+            $$
+            PSNR = 10 \cdot log_{10}\left(\frac{1}{MSE}\right).
+            $$
+        </p>
+        <p>
+            Training a model on the provided fox image, we get the following results:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/fox/progression/fox_progression_100.jpg">
+                <p>100 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/fox/progression/fox_progression_200.jpg">
+                <p>200 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/fox/progression/fox_progression_400.jpg">
+                <p>400 Epochs</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/fox/progression/fox_progression_800.jpg">
+                <p>800 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/fox/progression/fox_progression_1600.jpg">
+                <p>1600 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/fox/progression/fox_progression_3000.jpg">
+                <p>3000 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/fox/fox.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <p>
+            This is the PSNR curve for the above training run:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/fox/fox_psnr_plot.jpg">
+            </div>
+        </div>
+        <p>
+            Training the Neural Field with lower $L$ and model width values, we get the following:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/fox/fox_width_256_L_10.jpg">
+                <p>$L = 10$, model width $= 256$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/fox/fox_width_256_L_3.jpg">
+                <p>$L = 3$, model width $= 256$</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/fox/fox_width_64_L_10.jpg">
+                <p>$L = 10$, model width $= 64$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/fox/fox_width_64_L_3.jpg">
+                <p>$L = 3$, model width $= 64$</p>
+            </div>
+        </div>
+        <p>
+            I also trained a model on a picture of a cat using the same parameters are before
+            and got the following results:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/cat/cat_progression_100.jpg">
+                <p>100 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/cat/cat_progression_200.jpg">
+                <p>200 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/cat/cat_progression_400.jpg">
+                <p>400 Epochs</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/cat/cat_progression_800.jpg">
+                <p>800 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/cat/cat_progression_1600.jpg">
+                <p>1600 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/cat/cat_progression_3000.jpg">
+                <p>3000 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/cat/cat.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Part 2: Fit a Neural Radiance Field from Multi-view Images</h2>
+        <p>
+            Now instead of just representing a 2D image, we want to represent an entire 3D
+            space, with the goal of modeling a 3D object in the space so that we can
+            generate novel views.
+        </p>
+        <p>
+            First, we will train a Neural Radiance Field on the provided lego images. Below
+            are some of them:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/lego/lego_train_1.jpg">
+            </div>
+            <div class="image-item">
+                <img src="./media/lego/lego_train_2.jpg">
+            </div>
+            <div class="image-item">
+                <img src="./media/lego/lego_train_3.jpg">
+            </div>
+        </div>
+        <p>
+            The first thing we need to do is convert between camera and world coordinates. The
+            conversion from world coordinates to camera coordinates is given by
+            $$
+            \begin{bmatrix}
+                x_c \\ y_c \\ z_c \\ 1
+            \end{bmatrix} = \begin{bmatrix}
+                \mathbf{R}_{3 \times 3} & \mathbf{t} \\
+                \mathbf{0}_{1 \times 3} & 1
+            \end{bmatrix} \cdot \begin{bmatrix}
+                x_w \\ y_w \\ z_w \\ 1
+            \end{bmatrix},
+            $$
+            where $\mathbf{R}_{3 \times 3}$ is a rotation matrix and $\mathbf{t}$ is a
+            translation matrix.
+        </p>
+        <p>
+            Next we need to convert between pixel and camera coordinates. The
+            conversion from camera coordinates to pixel coordinates is given by
+            $$
+            s \begin{bmatrix}
+                u \\ v \\ 1
+            \end{bmatrix} = \mathbf{K} \begin{bmatrix}
+                x_c \\ y_c \\ z_c
+            \end{bmatrix},
+            $$
+            where $s$ is the depth of the point along the optical axis and $\mathbf{K}$ is
+            the camera's intrinsic matrix defined by
+            $$
+            \mathbf{K} = \begin{bmatrix}
+                f_x & 0 & o_x \\
+                0 & f_y & o_y \\
+                0 & 0 & 1
+            \end{bmatrix}.
+            $$
+        </p>
+        <p>
+            Next, we need to calculate the ray going from any given pixel to the camera.
+            To do this, we need the ray origin, which is just the translation,
+            $$
+            \mathbf{r}_o = \mathbf{t},
+            $$
+            and the ray direction, which we can compute by
+            $$
+            \mathbf{r}_d = \frac{\mathbf{X}_w - \mathbf{r}_o}{\|\mathbf{X}_w - \mathbf{r}_o\|_2}.
+            $$
+        </p>
+        <p>
+            Finally, we randomly sample rays from different camera angles, and then sample
+            points along those rays to get the values of points in the 3D space.
+        </p>
+        <p>
+            If we visualize the computed rays and points along those rays, with a varying number
+            of cameras, we get the following results:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/lego/visualization/visualization_100_cameras.jpg">
+                <p>100 Cameras</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/lego/visualization/visualization_25_cameras.jpg">
+                <p>25 Cameras</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/lego/visualization/visualization_1_camera.jpg">
+                <p>1 Camera</p>
+            </div>
+        </div>
+        <p>
+            Now we can use these points and rays to train a Neural Radiance Field.
+            Compared to the 2D Neural Field, the model now has more layers and
+            splits into 2 heads: one to compute density and one to compute the rgb values.
+        </p>
+        <p>
+            With density and rgb values, we just need to add the values along the ray together
+            in a process called volume rendering to get a rendered color. Then we can
+            compute a color for each pixel to render an image.
+        </p>
+        <p>
+            Below is the training progression for the Lego model over time:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/lego/progression/lego_progression_100.jpg">
+                <p>100 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/lego/progression/lego_progression_150.jpg">
+                <p>150 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/lego/progression/lego_progression_250.jpg">
+                <p>250 Epochs</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/lego/progression/lego_progression_450.jpg">
+                <p>450 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/lego/progression/lego_progression_900.jpg">
+                <p>900 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/lego/progression/lego_progression_1750.jpg">
+                <p>1750 Epochs</p>
+            </div>
+        </div>
+        <p>
+            Below are the training and validation PSNR curves for the above
+            training. Validation PSNR was computed every 50 epochs. The validation
+            PSNR reached 23.15 at epoch 1750, when training stopped.
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/lego/lego_train_psnr_plot.jpg">
+                <p>Training PSNR</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/lego/lego_val_psnr_plot.jpg">
+                <p>Validation PSNR</p>
+            </div>
+        </div>
+        <p>
+            Finally, below is a spherical rendering video of the Lego model
+            using the provided test cameras:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/lego/lego_video.gif">
+            </div>
+        </div>
+        <p>
+            Unfortunately, I was not able to make much meaningful training progress on the
+            dataset I created, which I think is because of issues with the camera calibration
+            and tag detection that I wasn't able to figure out.
+        </p>
+    </div>
+</body>
+</html>
