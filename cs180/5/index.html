@@ -1,0 +1,1918 @@
+<!DOCTYPE html>
+<link href="/styles/style.css" rel="stylesheet" />
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Benji Van Lienden - CS 180 Project 5</title>
+    <link href="./styles/style.css" rel="stylesheet" />
+    <script>
+        window.MathJax = {
+            tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$','$$'], ['\\[','\\]']]
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+    </script>
+</head>
+<body>
+    <div class="header">
+        <h1>Project 5: Fun With Diffusion Models!</h1>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>About This Project</h2>
+        <p>
+            In this project, we will use diffusion models to generate images, then train
+            diffusion models to generate handwritten numbers.
+        </p>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Part A.0: Setup</h2>
+        <p>
+            For the first part of this project, we use the DeepFloyd IF diffusion model. Testing the model
+            on several different text prompts with different numbers of inference steps, it gives us:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/samples/step_20/image_0.jpg">
+                <p>"an oil painting of a squid",<br>20 inference steps</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/samples/step_20/image_1.jpg">
+                <p>"a map of asia",<br>20 inference steps</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/samples/step_20/image_2.jpg">
+                <p>"a photo of a train",<br>20 inference steps</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/samples/step_100/image_0.jpg">
+                <p>"an oil painting of a squid",<br>100 inference steps</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/samples/step_100/image_1.jpg">
+                <p>"a map of asia",<br>100 inference steps</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/samples/step_100/image_2.jpg">
+                <p>"a photo of a train",<br>100 inference steps</p>
+            </div>
+        </div>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Part A.1: Sampling Loops</h2>
+        <p>
+            First, we implement a forward process that adds noise to a clean image for a given
+            timestep $t \in [0, 999]$. Greater $t$ values correspond to more noise, and noise
+            is added to the image by
+            $$
+            x_t = \sqrt{\overline{\alpha}_t} x_0 + \sqrt{1 - \overline{\alpha}_t} \epsilon
+            $$
+            where $x_0$ is the clean image, $\epsilon \sim N(0, 1)$, and $\overline{\alpha}_t$ ranges
+            from close to $1$ for small $t$ and close to $0$ for large $t$.
+        </p>
+        <p>
+            Running the forward process on a photo of the Campanile at $t \in \{250, 500, 750\}$,
+            we get:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/originals/campanile.jpg">
+                <p>Original</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/forward/test_im_250.jpg">
+                <p>$t = 250$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/forward/test_im_500.jpg">
+                <p>$t = 500$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/forward/test_im_750.jpg">
+                <p>$t = 750$</p>
+            </div>
+        </div>
+        <p>
+            Next, we try denoising the images using Gaussian blur filtering.
+            This gives us:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/forward/test_im_250.jpg">
+                <p>Noisy $t = 250$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/forward/test_im_500.jpg">
+                <p>Noisy $t = 500$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/forward/test_im_750.jpg">
+                <p>Noisy $t = 750$</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/classical/test_im_250.jpg">
+                <p>Denoised $t = 250$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/classical/test_im_500.jpg">
+                <p>Denoised $t = 500$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/classical/test_im_750.jpg">
+                <p>Denoised $t = 750$</p>
+            </div>
+        </div>
+        <p>
+            Next, we implement one-step denoising. We take a UNet that
+            has been trained on a large dataset of images and use it to
+            recover Gaussian noise from the image. Then, we can remove
+            the noise to recover the original image. Doing this, we get:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/forward/test_im_250.jpg">
+                <p>Noisy $t = 250$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/one_step/test_im_250.jpg">
+                <p>Denoised $t = 250$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/originals/campanile.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/forward/test_im_500.jpg">
+                <p>Noisy $t = 500$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/one_step/test_im_500.jpg">
+                <p>Denoised $t = 500$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/originals/campanile.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/forward/test_im_750.jpg">
+                <p>Noisy $t = 750$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/one_step/test_im_750.jpg">
+                <p>Denoised $t = 750$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/originals/campanile.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <p>
+            Now we take it a step further by implementing iterative
+            denoising. At each timestep $t$, we use the UNet and the
+            noisy image $x_t$ to get an estimate of $x_{t-1}$. After
+            enough steps, we will get an estimate of $x_0$. To speed up
+            the denoising, we can skip timesteps. Doing this, we get the
+            following intermediate results:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/iterative/steps/step_0.jpg">
+                <p>$t = 690$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/iterative/steps/step_1.jpg">
+                <p>$t = 540$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/iterative/steps/step_2.jpg">
+                <p>$t = 390$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/iterative/steps/step_3.jpg">
+                <p>$t = 240$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/iterative/steps/step_4.jpg">
+                <p>$t = 90$</p>
+            </div>
+        </div>
+        <p>
+            We have the final results:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/originals/campanile.jpg">
+                <p>Original</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/iterative/clean.jpg">
+                <p>Iteratively Denoised</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/iterative/one_step.jpg">
+                <p>One-Step Denoised</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/iterative/blur.jpg">
+                <p>Gaussian Blurred</p>
+            </div>
+        </div>
+        <p>
+            Now that we have an interative denoising function, we can use
+            it to generate images from scratch by starting with random noise.
+            Doing this to generate random sample images, we get:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/random_samples/sample_0.jpg">
+                <p>Sample 1</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/random_samples/sample_1.jpg">
+                <p>Sample 2</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/random_samples/sample_2.jpg">
+                <p>Sample 3</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/random_samples/sample_3.jpg">
+                <p>Sample 4</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/random_samples/sample_4.jpg">
+                <p>Sample 5</p>
+            </div>
+        </div>
+        <p>
+            The next thing we do is implement Classifier-Free Guidance, which
+            computes both a conditional noise estimate $\epsilon_c$ and an
+            unconditional noise estimate $\epsilon_u$, and let our new noise
+            estimate be given by
+            $$
+            \epsilon = \epsilon_u + \gamma (\epsilon_c - \epsilon_u),
+            $$
+            where $\gamma$ controls the strength. Doing this with $\gamma = 7$,
+            we get sample images:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/cfg/sample_0.jpg">
+                <p>Sample 1 with CFG</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/cfg/sample_1.jpg">
+                <p>Sample 2 with CFG</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/cfg/sample_2.jpg">
+                <p>Sample 3 with CFG</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/cfg/sample_3.jpg">
+                <p>Sample 4 with CFG</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/cfg/sample_4.jpg">
+                <p>Sample 5 with CFG</p>
+            </div>
+        </div>
+        <p>
+            Now, using CFG, we will take an image, add noise to it, and then
+            denoise it, effectively allowing us to edit the images. Trying this
+            with the Campanile image starting at dfferent noise levels, we get:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/campanile/campanile_1.jpg">
+                <p>$\texttt{i_start} = 1$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/campanile/campanile_3.jpg">
+                <p>$\texttt{i_start} = 3$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/campanile/campanile_5.jpg">
+                <p>$\texttt{i_start} = 5$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/campanile/campanile_7.jpg">
+                <p>$\texttt{i_start} = 7$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/campanile/campanile_10.jpg">
+                <p>$\texttt{i_start} = 10$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/campanile/campanile_20.jpg">
+                <p>$\texttt{i_start} = 20$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/originals/campanile.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <p>
+            Done on a picture of some stairs on a mountain:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/stairs/stairs_1.jpg">
+                <p>$\texttt{i_start} = 1$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/stairs/stairs_3.jpg">
+                <p>$\texttt{i_start} = 3$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/stairs/stairs_5.jpg">
+                <p>$\texttt{i_start} = 5$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/stairs/stairs_7.jpg">
+                <p>$\texttt{i_start} = 7$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/stairs/stairs_10.jpg">
+                <p>$\texttt{i_start} = 10$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/stairs/stairs_20.jpg">
+                <p>$\texttt{i_start} = 20$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/originals/stairs.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <p>
+            And a picture of a lake:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/lake/lake_1.jpg">
+                <p>$\texttt{i_start} = 1$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/lake/lake_3.jpg">
+                <p>$\texttt{i_start} = 3$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/lake/lake_5.jpg">
+                <p>$\texttt{i_start} = 5$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/lake/lake_7.jpg">
+                <p>$\texttt{i_start} = 7$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/lake/lake_10.jpg">
+                <p>$\texttt{i_start} = 10$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/image_to_image/lake/lake_20.jpg">
+                <p>$\texttt{i_start} = 20$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/originals/lake.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <p>
+            We can also do this with nonrealistic images and drawings.
+            Here is an image of a mosaic fish taken from the web:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/editing/web/denoised_1.jpg">
+                <p>$\texttt{i_start} = 1$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/web/denoised_3.jpg">
+                <p>$\texttt{i_start} = 3$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/web/denoised_5.jpg">
+                <p>$\texttt{i_start} = 5$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/web/denoised_7.jpg">
+                <p>$\texttt{i_start} = 7$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/web/denoised_10.jpg">
+                <p>$\texttt{i_start} = 10$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/web/denoised_20.jpg">
+                <p>$\texttt{i_start} = 20$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/web/original.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <p>
+            Here is a hand drawn image:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_1/denoised_1.jpg">
+                <p>$\texttt{i_start} = 1$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_1/denoised_3.jpg">
+                <p>$\texttt{i_start} = 3$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_1/denoised_5.jpg">
+                <p>$\texttt{i_start} = 5$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_1/denoised_7.jpg">
+                <p>$\texttt{i_start} = 7$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_1/denoised_10.jpg">
+                <p>$\texttt{i_start} = 10$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_1/denoised_20.jpg">
+                <p>$\texttt{i_start} = 20$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_1/original.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <p>
+            Here is another hand drawn image:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_2/denoised_1.jpg">
+                <p>$\texttt{i_start} = 1$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_2/denoised_3.jpg">
+                <p>$\texttt{i_start} = 3$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_2/denoised_5.jpg">
+                <p>$\texttt{i_start} = 5$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_2/denoised_7.jpg">
+                <p>$\texttt{i_start} = 7$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_2/denoised_10.jpg">
+                <p>$\texttt{i_start} = 10$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_2/denoised_20.jpg">
+                <p>$\texttt{i_start} = 20$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/editing/hand_2/original.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <p>
+            We can also create a mask for an image to only repaint a part
+            of the image. Here are some inpaints:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/originals/campanile.jpg">
+                <p>Original</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/inpainting/campanile_mask.jpg">
+                <p>Mask</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/inpainting/campanile_to_replace.jpg">
+                <p>Hole to Fill</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/inpainting/campanile.jpg">
+                <p>Inpainted</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/originals/stairs.jpg">
+                <p>Original</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/inpainting/stairs_mask.jpg">
+                <p>Mask</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/inpainting/stairs_to_replace.jpg">
+                <p>Hole to Fill</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/inpainting/stairs.jpg">
+                <p>Inpainted</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/originals/lake.jpg">
+                <p>Original</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/inpainting/lake_mask.jpg">
+                <p>Mask</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/inpainting/lake_to_replace.jpg">
+                <p>Hole to Fill</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/inpainting/lake.jpg">
+                <p>Inpainted</p>
+            </div>
+        </div>
+        <p>
+            Now we edit images, but use a text prompt to guide what the
+            final output will look like. Here are some edits of the image of
+            the Campanile, this time conditioned on the prompt
+            "a rocket ship":
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/campanile/denoised_1.jpg">
+                <p>$\texttt{i_start} = 1$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/campanile/denoised_3.jpg">
+                <p>$\texttt{i_start} = 3$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/campanile/denoised_5.jpg">
+                <p>$\texttt{i_start} = 5$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/campanile/denoised_7.jpg">
+                <p>$\texttt{i_start} = 7$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/campanile/denoised_10.jpg">
+                <p>$\texttt{i_start} = 10$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/campanile/denoised_20.jpg">
+                <p>$\texttt{i_start} = 20$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/originals/campanile.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <p>
+            Here are edits of the image of the stairs, this time conditioned
+            on the prompt "a photo of a cat":
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/stairs/denoised_1.jpg">
+                <p>$\texttt{i_start} = 1$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/stairs/denoised_3.jpg">
+                <p>$\texttt{i_start} = 3$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/stairs/denoised_5.jpg">
+                <p>$\texttt{i_start} = 5$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/stairs/denoised_7.jpg">
+                <p>$\texttt{i_start} = 7$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/stairs/denoised_10.jpg">
+                <p>$\texttt{i_start} = 10$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/stairs/denoised_20.jpg">
+                <p>$\texttt{i_start} = 20$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/originals/stairs.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <p>
+            Here are edits of the image of the lake, this time conditioned
+            on the prompt "an oil painting of a squid":
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/lake/denoised_1.jpg">
+                <p>$\texttt{i_start} = 1$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/lake/denoised_3.jpg">
+                <p>$\texttt{i_start} = 3$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/lake/denoised_5.jpg">
+                <p>$\texttt{i_start} = 5$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/lake/denoised_7.jpg">
+                <p>$\texttt{i_start} = 7$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/lake/denoised_10.jpg">
+                <p>$\texttt{i_start} = 10$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/tc_image_to_image/lake/denoised_20.jpg">
+                <p>$\texttt{i_start} = 20$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/originals/lake.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <p>
+            Next, we will use CFGs to create visual anagrams. To do this, we
+            generate two noise estimates
+            $$
+            \epsilon_1 = \text{CFG of UNet}(x_t, t, p_1)
+            $$
+            and
+            $$
+            \epsilon_2 = \text{flip(CFG of UNet(flip($x_t$),$t$,$p_2$))}.
+            $$
+            Then we get a noise estimate
+            $$
+            \epsilon = (\epsilon_1 + \epsilon_2) / 2.
+            $$
+        </p>
+        <p>
+            Using this method, we get:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/anagram/flowers.jpg">
+                <p>"an oil painting of a vase of flowers"</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/anagram/squid.jpg">
+                <p>"an oil painting of a squid"</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/anagram/train.jpg">
+                <p>"a photo of a train"</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/anagram/cat.jpg">
+                <p>"a photo of a cat"</p>
+            </div>
+        </div>
+        <p>
+            We can use a similar method to create visual hybrid images. This
+            is done by
+            $$
+            \epsilon_1 = \text{CFG of UNet}(x_t, t, p_1)
+            $$
+            and
+            $$
+            \epsilon_2 = \text{CFG of UNet}(x_t, t, p_2)
+            $$
+            which we then filter to get
+            $$
+            \epsilon = f_{lowpass}(\epsilon_1) + f_{highpass}(\epsilon_2).
+            $$
+        </p>
+        <p>
+            Using this method, we get:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_a/hybrid/waterfalls_skull.jpg">
+                <p>"a lithograph of a skull",<br>"a lithograph of waterfalls"</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_a/hybrid/pyramid_market.jpg">
+                <p>"a lithograph of a pyramid",<br>"a lithograph of a market"</p>
+            </div>
+        </div>
+    </div>
+    &nbsp;
+    <div class="part-box">
+        <h2>Part B.1: Training a Single-Step Denoising UNet</h2>
+        <p>
+            In htis part of the project, we build a one-step denoiser that,
+            given a noisy image, will map it to a clean image.
+        </p>
+        <p>
+            The UNet is implemented as follows:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_b/one_step_unet.jpg">
+            </div>
+        </div>
+        <p>
+            It has tensor operations defined as follows:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_b/unet_tensor_operations.jpg">
+            </div>
+        </div>
+        <p>
+            To train the UNet, we need to generate data pairs mapping noisy
+            data to clean data. Adding noise $\sigma$ to some data at different levels,
+            we get the following:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_b/noise/noise_0.jpg">
+                <p>$\sigma = 0.0$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/noise/noise_2.jpg">
+                <p>$\sigma = 0.2$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/noise/noise_4.jpg">
+                <p>$\sigma = 0.4$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/noise/noise_5.jpg">
+                <p>$\sigma = 0.5$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/noise/noise_6.jpg">
+                <p>$\sigma = 0.6$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/noise/noise_8.jpg">
+                <p>$\sigma = 0.8$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/noise/noise_10.jpg">
+                <p>$\sigma = 1.0$</p>
+            </div>
+        </div>
+        <p>
+            Now we train the UNet on the training data. With $\sigma = 0.5$,
+            here is the training loss curve:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_b/unet/unet_loss.jpg">
+            </div>
+        </div>
+        <p>
+            And here are some sample results after the first and fifth epochs:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_b/unet/noisy/noisy_0.jpg">
+                <p>Noisy</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/unet/epoch_0/epoch_0_0.jpg">
+                <p>1 Epoch</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/unet/epoch_4/epoch_4_0.jpg">
+                <p>5 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/unet/original/original_0.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_b/unet/noisy/noisy_1.jpg">
+                <p>Noisy</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/unet/epoch_0/epoch_0_1.jpg">
+                <p>1 Epoch</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/unet/epoch_4/epoch_4_1.jpg">
+                <p>5 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/unet/original/original_1.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_b/unet/noisy/noisy_2.jpg">
+                <p>Noisy</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/unet/epoch_0/epoch_0_2.jpg">
+                <p>1 Epoch</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/unet/epoch_4/epoch_4_2.jpg">
+                <p>5 Epochs</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/unet/original/original_2.jpg">
+                <p>Original</p>
+            </div>
+        </div>
+        <p>
+            We also test the trained UNet on images with noise levels it was
+            not trained on:
+        </p>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/noisy/noisy_0.jpg">
+                <p>Noisy, $\sigma = 0.0$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/noisy/noisy_2.jpg">
+                <p>Noisy, $\sigma = 0.2$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/noisy/noisy_4.jpg">
+                <p>Noisy, $\sigma = 0.4$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/noisy/noisy_5.jpg">
+                <p>Noisy, $\sigma = 0.5$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/noisy/noisy_6.jpg">
+                <p>Noisy, $\sigma = 0.6$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/noisy/noisy_8.jpg">
+                <p>Noisy, $\sigma = 0.8$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/noisy/noisy_10.jpg">
+                <p>Noisy, $\sigma = 1.0$</p>
+            </div>
+        </div>
+        <div class="image-row">
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/output/output_0.jpg">
+                <p>Output, $\sigma = 0.0$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/output/output_2.jpg">
+                <p>Output, $\sigma = 0.2$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/output/output_4.jpg">
+                <p>Output, $\sigma = 0.4$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/output/output_5.jpg">
+                <p>Output, $\sigma = 0.5$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/output/output_6.jpg">
+                <p>Output, $\sigma = 0.6$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/output/output_8.jpg">
+                <p>Output, $\sigma = 0.8$</p>
+            </div>
+            <div class="image-item">
+                <img src="./media/part_b/ood_testing/output/output_10.jpg">
+                <p>Output, $\sigma = 1.0$</p>
+            </div>
+        </div>
+    </div>
+    <p>
+        Now we train a UNet on pure Gaussian noise. Here is the training
+        loss curve:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/pure_noise/pure_noise_loss.jpg">
+        </div>
+    </div>
+    <p>
+        And here are some sample results after the first and fifth epochs:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/pure_noise/noisy/noisy_0.jpg">
+            <p>Noisy</p>
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/pure_noise/epoch_0/epoch_0_0.jpg">
+            <p>1 Epoch</p>
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/pure_noise/epoch_4/epoch_4_0.jpg">
+            <p>5 Epochs</p>
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/pure_noise/original/original_0.jpg">
+            <p>Original</p>
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/pure_noise/noisy/noisy_1.jpg">
+            <p>Noisy</p>
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/pure_noise/epoch_0/epoch_0_1.jpg">
+            <p>1 Epoch</p>
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/pure_noise/epoch_4/epoch_4_1.jpg">
+            <p>5 Epochs</p>
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/pure_noise/original/original_1.jpg">
+            <p>Original</p>
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/pure_noise/noisy/noisy_2.jpg">
+            <p>Noisy</p>
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/pure_noise/epoch_0/epoch_0_2.jpg">
+            <p>1 Epoch</p>
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/pure_noise/epoch_4/epoch_4_2.jpg">
+            <p>5 Epochs</p>
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/pure_noise/original/original_2.jpg">
+            <p>Original</p>
+        </div>
+    </div>
+    <p>
+        When training on pure noise, the model learns to output the same
+        thing every time: an average of all the input images.
+    </p>
+    <p>
+        Next, we will train a flow matching model to get better performance
+        on generative tasks. The main difference here is that we inject
+        a scalar $t$ into the model. The model is constructed as follows:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet.jpg">
+        </div>
+    </div>
+    <p>
+        The fully connected block is constructed as follows:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/fcblock.jpg">
+        </div>
+    </div>
+    <p>
+        Now, training this new UNet, we get the following loss curve:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/tc_unet_loss.jpg">
+        </div>
+    </div>
+    <p>
+        Here are some sample output images after training for 1 epoch:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_0/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_0/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_0/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_0/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_0/img_4.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_0/img_5.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_0/img_6.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_0/img_7.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_0/img_8.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_0/img_9.jpg">
+        </div>
+    </div>
+    <p>
+        After 5 epochs:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_4/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_4/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_4/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_4/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_4/img_4.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_4/img_5.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_4/img_6.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_4/img_7.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_4/img_8.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_4/img_9.jpg">
+        </div>
+    </div>
+    <p>
+        After 10 epochs:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_9/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_9/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_9/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_9/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_9/img_4.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_9/img_5.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_9/img_6.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_9/img_7.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_9/img_8.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/tc_unet/epoch_9/img_9.jpg">
+        </div>
+    </div>
+    <p>
+        To improve the model even more, we also condition the UNet
+        on the class of the image (the digit 0-9). Additinally, we
+        add a 10% dropout on the class conditioning.
+    </p>
+    <p>
+        Here is a training curve for the class-conditioned UNet:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/cc_unet_loss.jpg">
+        </div>
+    </div>
+    <p>
+        And here are sample results for each digit after 1 epoch:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_0/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_1/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_2/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_3/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_4/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_5/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_6/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_7/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_8/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_9/img_0.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_0/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_1/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_2/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_3/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_4/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_5/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_6/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_7/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_8/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_9/img_1.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_0/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_1/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_2/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_3/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_4/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_5/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_6/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_7/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_8/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_9/img_2.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_0/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_1/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_2/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_3/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_4/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_5/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_6/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_7/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_8/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_0/digit_9/img_3.jpg">
+        </div>
+    </div>
+    <p>
+        After 5 epochs:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_0/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_1/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_2/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_3/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_4/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_5/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_6/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_7/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_8/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_9/img_0.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_0/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_1/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_2/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_3/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_4/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_5/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_6/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_7/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_8/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_9/img_1.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_0/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_1/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_2/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_3/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_4/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_5/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_6/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_7/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_8/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_9/img_2.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_0/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_1/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_2/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_3/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_4/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_5/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_6/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_7/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_8/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_4/digit_9/img_3.jpg">
+        </div>
+    </div>
+    <p>
+        After 10 epochs:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_0/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_1/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_2/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_3/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_4/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_5/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_6/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_7/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_8/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_9/img_0.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_0/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_1/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_2/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_3/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_4/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_5/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_6/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_7/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_8/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_9/img_1.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_0/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_1/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_2/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_3/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_4/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_5/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_6/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_7/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_8/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_9/img_2.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_0/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_1/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_2/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_3/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_4/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_5/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_6/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_7/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_8/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet/epoch_9/digit_9/img_3.jpg">
+        </div>
+    </div>
+    <p>
+        During training, the previous model used a scheduler to gradually
+        decrease the learning rate from 1e-2. We can try to remove the
+        scheduler and train on a lower learning rate (3e-3). Below are
+        sample results for each image after 1 epoch:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_0/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_1/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_2/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_3/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_4/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_5/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_6/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_7/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_8/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_9/img_0.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_0/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_1/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_2/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_3/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_4/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_5/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_6/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_7/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_8/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_9/img_1.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_0/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_1/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_2/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_3/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_4/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_5/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_6/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_7/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_8/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_9/img_2.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_0/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_1/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_2/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_3/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_4/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_5/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_6/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_7/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_8/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_0/digit_9/img_3.jpg">
+        </div>
+    </div>
+    <p>
+        After 5 epochs:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_0/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_1/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_2/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_3/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_4/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_5/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_6/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_7/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_8/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_9/img_0.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_0/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_1/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_2/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_3/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_4/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_5/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_6/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_7/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_8/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_9/img_1.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_0/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_1/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_2/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_3/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_4/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_5/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_6/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_7/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_8/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_9/img_2.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_0/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_1/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_2/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_3/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_4/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_5/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_6/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_7/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_8/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_4/digit_9/img_3.jpg">
+        </div>
+    </div>
+    <p>
+        After 10 epochs:
+    </p>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_0/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_1/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_2/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_3/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_4/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_5/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_6/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_7/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_8/img_0.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_9/img_0.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_0/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_1/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_2/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_3/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_4/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_5/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_6/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_7/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_8/img_1.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_9/img_1.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_0/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_1/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_2/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_3/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_4/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_5/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_6/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_7/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_8/img_2.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_9/img_2.jpg">
+        </div>
+    </div>
+    <div class="image-row">
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_0/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_1/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_2/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_3/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_4/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_5/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_6/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_7/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_8/img_3.jpg">
+        </div>
+        <div class="image-item">
+            <img src="./media/part_b/cc_unet_no_scheduler/epoch_9/digit_9/img_3.jpg">
+        </div>
+    </div>
+</body>
+</html>
